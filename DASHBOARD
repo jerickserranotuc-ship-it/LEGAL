@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestor de Casos Judiciales</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f4f6fa; --card:#ffffff; --ink:#1a2233; --muted:#6b7690; --line:#e3e8f2;
+  --primary:#1e4fd8; --primary-d:#153ba8; --accent:#0f9d78; --danger:#d93b3b;
+  --warn:#c98a00; --radius:12px; --shadow:0 2px 12px rgba(20,30,60,.07);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  background:var(--bg);color:var(--ink);font-size:14px}
+h1,h2,h3{margin:0}
+header{background:linear-gradient(120deg,#122a5e,#1e4fd8);color:#fff;padding:18px 24px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+header h1{font-size:19px;letter-spacing:.3px;display:flex;align-items:center;gap:10px}
+header .sub{font-size:12px;opacity:.85;margin-top:3px}
+header .badge-law{background:rgba(255,255,255,.16);padding:6px 12px;border-radius:20px;font-size:12px}
+main{max-width:1700px;margin:0 auto;padding:20px 24px 60px}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 16px;box-shadow:var(--shadow)}
+.stat .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600}
+.stat .val{font-size:22px;font-weight:700;margin-top:6px}
+.stat .val.green{color:var(--accent)} .stat .val.red{color:var(--danger)}
+.stat .val.blue{color:var(--primary)} .stat .val.warn{color:var(--warn)}
+
+/* ==== PANEL DE SUCURSALES ==== */
+.suc-panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden}
+.suc-head{padding:14px 18px;display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid var(--line);background:#fbfcfe;flex-wrap:wrap;gap:10px}
+.suc-head .t{font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--primary)}
+.suc-head .hint{font-size:12px;color:var(--muted)}
+.suc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;padding:16px}
+.suc-card{border:1.5px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;
+  transition:.18s;background:#fff;position:relative;overflow:hidden}
+.suc-card:hover{border-color:var(--primary);background:#f5f8ff;transform:translateY(-2px);
+  box-shadow:0 8px 20px rgba(30,79,216,.12)}
+.suc-card.sel{border-color:var(--primary);background:linear-gradient(135deg,#e8efff,#f5f8ff);
+  box-shadow:0 0 0 3px rgba(30,79,216,.15)}
+.suc-card .nom{font-weight:800;font-size:14.5px;color:var(--ink);display:flex;align-items:center;gap:8px}
+.suc-card .nom .num{background:var(--primary);color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:700}
+.suc-card .monto{font-size:18px;font-weight:800;color:var(--primary);margin-top:10px;letter-spacing:-.3px}
+.suc-card .monto-l{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin-top:2px}
+.suc-card .row{display:flex;justify-content:space-between;font-size:11.5px;margin-top:8px;padding-top:8px;border-top:1px dashed #dde4f3;color:var(--muted)}
+.suc-card .row b{color:var(--accent)}
+.suc-card .row .red{color:var(--danger)}
+.suc-card .bar{height:6px;background:#e8eefb;border-radius:6px;overflow:hidden;margin-top:8px}
+.suc-card .bar > i{display:block;height:100%;background:linear-gradient(90deg,#1e4fd8,#0f9d78)}
+.suc-card .pct{font-size:11px;font-weight:700;color:var(--accent);margin-top:4px;text-align:right}
+
+/* ==== DETALLE DE SUCURSAL ==== */
+.suc-detail{padding:0 16px 20px}
+.suc-detail .box{background:#f8faff;border:1px solid #dde4f3;border-radius:12px;padding:16px}
+.suc-detail h4{margin:0 0 10px;font-size:12.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--primary)}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.detail-col{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px}
+.detail-col .h{font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:800;color:var(--muted);margin-bottom:8px}
+.detail-col .item{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed #eef2fb;font-size:12.5px}
+.detail-col .item:last-child{border:none}
+.detail-col .item b{color:var(--primary)}
+.detail-col .item .val{font-weight:700}
+.detail-col .item .g{color:var(--accent)} .detail-col .item .r{color:var(--danger)}
+
+.mini-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.btn.sm{padding:6px 12px;font-size:12.5px}
+
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden}
+.toolbar{padding:14px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+  border-bottom:1px solid var(--line);background:#fbfcfe}
+input,select,textarea{font-family:inherit;font-size:13.5px;color:var(--ink);
+  border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(30,79,216,.12)}
+input[readonly]{background:#f0f3f9;color:var(--muted);font-weight:600}
+.toolbar input,.toolbar select{width:auto;min-width:150px}
+.toolbar .search{flex:1;min-width:220px}
+
+.btn{border:1px solid transparent;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;
+  cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:.15s}
+.btn.primary{background:var(--primary);color:#fff}
+.btn.primary:hover{background:var(--primary-d)}
+.btn.excel{background:#1d6f42;color:#fff}
+.btn.excel:hover{background:#175a35}
+.btn.ghost{background:#fff;border-color:var(--line);color:var(--ink)}
+.btn.ghost:hover{background:#f1f4fa}
+.btn.danger{background:#fdecec;color:var(--danger);border-color:#f7cfcf}
+.btn.danger:hover{background:#fadada}
+
+.table-wrap{overflow-x:auto;max-height:60vh}
+table{border-collapse:collapse;width:100%;min-width:1400px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{position:sticky;top:0;background:#f7f9fd;font-size:11px;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--muted);cursor:pointer;user-select:none;z-index:2}
+th:hover{color:var(--primary)}
+th .arw{opacity:.45;font-size:10px}
+td{font-size:13px}
+tbody tr:hover{background:#f8faff}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.b-activo{background:#e6f7f0;color:#0b7a5c}
+.b-tramite{background:#e8efff;color:#1e4fd8}
+.b-susp{background:#fff4e0;color:#a06a00}
+.b-cerr{background:#eef0f5;color:#5c6579}
+.b-peligro{background:#fdecec;color:#c22}
+.b-info{background:#e0f2fe;color:#075985}
+.actions{display:flex;gap:6px}
+.icon-btn{border:1px solid var(--line);background:#fff;border-radius:7px;width:30px;height:30px;
+  cursor:pointer;font-size:14px;display:grid;place-items:center;transition:.15s}
+.icon-btn:hover{background:#eef3ff;border-color:#c9d8ff}
+.empty{padding:50px;text-align:center;color:var(--muted)}
+
+.overlay{position:fixed;inset:0;background:rgba(14,22,45,.55);display:none;
+  align-items:flex-start;justify-content:center;padding:26px 16px;z-index:50;overflow-y:auto}
+.overlay.show{display:flex}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:1080px;box-shadow:0 24px 60px rgba(0,0,0,.3);
+  display:flex;flex-direction:column;max-height:calc(100vh - 52px)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;
+  border-bottom:1px solid var(--line)}
+.modal-head h2{font-size:16px}
+.modal-body{padding:18px 20px;overflow-y:auto}
+.modal-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;
+  background:#fbfcfe;border-radius:0 0 16px 16px}
+
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.form-section{grid-column:1/-1;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--primary);padding:8px 0 4px;border-bottom:2px solid #e8efff;margin-top:6px}
+.form-section:first-child{margin-top:0}
+.field{display:flex;flex-direction:column;gap:5px}
+.field.full{grid-column:1/-1}
+.field label{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.field .req{color:var(--danger)}
+
+.detail-grid-modal{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0}
+.detail-sec{grid-column:1/-1;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--primary);padding:12px 0 6px;border-bottom:2px solid #e8efff;margin-top:4px}
+.d-item{padding:9px 12px;border-bottom:1px solid #f0f3f9}
+.d-item .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+.d-item .v{font-size:13.5px;margin-top:3px;word-break:break-word;white-space:pre-wrap}
+
+.toast{position:fixed;bottom:24px;right:24px;background:#132a56;color:#fff;padding:12px 20px;
+  border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.28);
+  opacity:0;transform:translateY(12px);transition:.25s;pointer-events:none;z-index:99}
+.toast.show{opacity:1;transform:translateY(0)}
+
+.dropzone{border:2px dashed #c9d8ff;background:#f5f8ff;border-radius:14px;padding:28px;
+  text-align:center;transition:.2s;cursor:pointer}
+.dropzone:hover,.dropzone.over{border-color:var(--primary);background:#eaf1ff}
+.dropzone .big{font-size:38px;margin-bottom:8px}
+.dropzone .t{font-weight:700;color:var(--primary);font-size:15px}
+.dropzone .s{color:var(--muted);font-size:12.5px;margin-top:6px}
+
+.sheet-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:12px}
+.sheet-card{border:1.5px solid var(--line);border-radius:10px;padding:12px;cursor:pointer;
+  transition:.15s;background:#fff}
+.sheet-card:hover{border-color:var(--primary);background:#f5f8ff}
+.sheet-card.sel{border-color:var(--primary);background:#e8efff;box-shadow:0 0 0 3px rgba(30,79,216,.12)}
+.sheet-card .n{font-weight:700;font-size:13.5px}
+.sheet-card .m{font-size:11.5px;color:var(--muted);margin-top:4px}
+.sheet-card .ok{color:var(--accent);font-weight:700;font-size:11px}
+
+.summary{background:#f5f8ff;border:1px solid #d6e2ff;border-radius:10px;padding:14px;margin-top:14px}
+.summary .r{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed #d6e2ff;font-size:13px}
+.summary .r:last-child{border:none}
+.summary .r b{color:var(--primary)}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⚖️ Gestor de Casos Judiciales</h1>
+    <div class="sub">Control de cartera judicial · seguimiento procesal y recuperación</div>
+  </div>
+  <div class="badge-law" id="headerCount">0 casos</div>
+</header>
+
+<main>
+  <!-- ESTADÍSTICAS GLOBALES -->
+  <section class="stats">
+    <div class="stat"><div class="lbl">Casos registrados</div><div class="val blue" id="sCasos">0</div></div>
+    <div class="stat"><div class="lbl">Monto demandado</div><div class="val" id="sDemanda">0.00</div></div>
+    <div class="stat"><div class="lbl">Total a recuperar</div><div class="val" id="sTotal">0.00</div></div>
+    <div class="stat"><div class="lbl">Recuperado</div><div class="val green" id="sRecup">0.00</div></div>
+    <div class="stat"><div class="lbl">Pendiente</div><div class="val red" id="sPend">0.00</div></div>
+    <div class="stat"><div class="lbl">% Recuperación</div><div class="val" id="sPct">0%</div></div>
+  </section>
+
+  <!-- PANEL DE SUCURSALES -->
+  <section class="suc-panel">
+    <div class="suc-head">
+      <div class="t">🏢 Sucursales — clic para ver detalle completo</div>
+      <div class="hint" id="sucHint">Selecciona una sucursal para desplegar toda su información</div>
+    </div>
+    <div class="suc-grid" id="sucGrid"></div>
+    <div class="suc-detail" id="sucDetail" style="display:none"></div>
+  </section>
+
+  <!-- TABLA PRINCIPAL -->
+  <section class="panel">
+    <div class="toolbar">
+      <input class="search" id="search" type="search" placeholder="🔎 Buscar por deudor, cédula, préstamo, asunto, juzgado...">
+      <select id="filterEstatus"><option value="">Estatus: todos</option></select>
+      <select id="filterAbogado"><option value="">Abogado: todos</option></select>
+      <select id="filterSucursal"><option value="">Sucursal: todas</option></select>
+      <button class="btn excel" id="btnExcel">📥 Importar Excel</button>
+      <button class="btn primary" id="btnNuevo">＋ Nuevo caso</button>
+      <button class="btn ghost" id="btnCSV">⬇ CSV</button>
+      <button class="btn ghost" id="btnJSON">⬇ Respaldo</button>
+      <button class="btn ghost" id="btnImportJSON">⬆ JSON</button>
+      <button class="btn danger" id="btnBorrarTodo">🗑 Todo</button>
+      <input type="file" id="fileExcel" accept=".xlsx,.xls,.csv" hidden>
+      <input type="file" id="fileImportJSON" accept=".json" hidden>
+    </div>
+
+    <div class="table-wrap">
+      <table id="tabla">
+        <thead><tr id="theadRow"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="empty" id="emptyMsg">No hay casos registrados. Presiona <b>📥 Importar Excel</b> o <b>＋ Nuevo caso</b>.</div>
+    </div>
+  </section>
+</main>
+
+<!-- MODAL EXCEL -->
+<div class="overlay" id="excelModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>📥 Importar base de Excel</h2>
+      <button class="icon-btn" data-close>✕</button>
+    </div>
+    <div class="modal-body" id="excelBody">
+      <div class="dropzone" id="dropzone">
+        <div class="big">📄</div>
+        <div class="t">Arrastra tu archivo Excel aquí o haz clic para seleccionar</div>
+        <div class="s">Formatos soportados: .xlsx, .xls, .csv — máx. recomendado 15 MB</div>
+      </div>
+      <div id="sheetPick" style="display:none">
+        <h3 style="font-size:14px;margin-bottom:4px">Selecciona la hoja con los datos</h3>
+        <div class="s" style="color:var(--muted);font-size:12.5px">Las hojas con más encabezados reconocidos aparecen marcadas con ✔</div>
+        <div class="sheet-list" id="sheetList"></div>
+        <div class="summary" id="previewSummary" style="display:none"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" data-close>Cancelar</button>
+      <button class="btn primary" id="btnConfirmImport" disabled>Importar datos</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FORM -->
+<div class="overlay" id="formModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="formTitle">Nuevo caso</h2>
+      <button class="icon-btn" data-close>✕</button>
+    </div>
+    <form class="modal-body form-grid" id="casoForm" autocomplete="off"></form>
+    <div class="modal-foot">
+      <button class="btn ghost" data-close>Cancelar</button>
+      <button class="btn primary" id="saveBtn">💾 Guardar caso</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE -->
+<div class="overlay" id="viewModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="viewTitle">Detalle del caso</h2>
+      <button class="icon-btn" data-close>✕</button>
+    </div>
+    <div class="modal-body"><div class="detail-grid-modal" id="viewBody"></div></div>
+    <div class="modal-foot">
+      <button class="btn ghost" data-close>Cerrar</button>
+      <button class="btn primary" id="viewEdit">✎ Editar este caso</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CAMPOS (exactamente los que solicitaste)
+   ============================================================ */
+const FIELDS = [
+  {k:'noPrestamo',        l:'No. Préstamo',              t:'text', sec:'Cartera y préstamo'},
+  {k:'estadoCartera',     l:'Estado de la cartera',      t:'select', sec:'Cartera y préstamo',
+     opts:['Vigente','Vencida','Judicial','Castigada','Cancelada','Reestructurada','Saneada','Corriente']},
+  {k:'sucursal',          l:'Sucursal',                  t:'text', sec:'Cartera y préstamo'},
+  {k:'fUltimoPago',       l:'F. último pago',            t:'date', sec:'Cartera y préstamo'},
+  {k:'fechaUltimoPago',   l:'Fecha último pago',         t:'date', sec:'Cartera y préstamo'},
+
+  {k:'nombreDeudor',      l:'Nombre del deudor',         t:'text', sec:'Deudor y fiadores', req:true},
+  {k:'cedulaDeudor',      l:'Cédula deudor',             t:'text', sec:'Deudor y fiadores'},
+  {k:'cedulaDeudor2',     l:'Cédula deudor 2',           t:'text', sec:'Deudor y fiadores'},
+  {k:'nombreFiadores',    l:'Nombre del fiador(es)',     t:'textarea', sec:'Deudor y fiadores'},
+  {k:'cedulaFiador',      l:'Cédula fiador',             t:'text', sec:'Deudor y fiadores'},
+
+  {k:'tipoJuicio',        l:'Tipo de juicio',            t:'select', sec:'Proceso judicial',
+     opts:['Ejecutivo','Ejecutivo Hipotecario','Ejecutivo Prendario','Ordinario','Sumario','Monitorio','Laboral',
+           'EJECUCION DE TITULO NO JUDICIAL','Otro']},
+  {k:'fechaPresentacionDemanda', l:'Fecha de presentación de demanda', t:'date', sec:'Proceso judicial'},
+  {k:'juzgado',           l:'Juzgado',                   t:'text', sec:'Proceso judicial'},
+  {k:'noAsuntoJudicial',  l:'No. Asunto judicial',       t:'text', sec:'Proceso judicial'},
+
+  {k:'fechaUltimaGestion',l:'Fecha última gestión',      t:'date', sec:'Gestión y seguimiento'},
+  {k:'gestionProcesal',   l:'Gestión procesal realizada',t:'textarea', sec:'Gestión y seguimiento'},
+  {k:'accionEjecutar',    l:'Acción a ejecutar',         t:'textarea', sec:'Gestión y seguimiento'},
+  {k:'estatus',           l:'Estatus',                   t:'select', sec:'Gestión y seguimiento',
+     opts:['Activo','En trámite','Suspendido','Sentencia favorable','Embargo','Ejecución','Apelación',
+           'Cerrado','Archivado','CANCELADO','Cancelado','RECUPERANDO','Recuperando','NO LABORA',
+           'Pendiente de recuperar','Pendiente de embargo','Pendiente tasar costas']},
+  {k:'lugarEmbargo',      l:'Lugar de embargo',          t:'text', sec:'Gestión y seguimiento'},
+
+  {k:'montoDemanda',      l:'Monto de la demanda',       t:'number', sec:'Recuperación económica'},
+  {k:'costasTasadas',     l:'Costas tasadas',            t:'number', sec:'Recuperación económica'},
+  {k:'totalRecuperar',    l:'Total a recuperar (auto)',  t:'number', sec:'Recuperación económica', readonly:true},
+  {k:'montoRecuperado',   l:'Monto recuperado a la fecha', t:'number', sec:'Recuperación económica'},
+  {k:'montoPendiente',    l:'Monto pendiente de recuperar (auto)', t:'number', sec:'Recuperación económica', readonly:true},
+
+  {k:'trabajoActual',     l:'Trabajo actual',            t:'text', sec:'Empleo y abogado'},
+  {k:'salario',           l:'Salario',                   t:'number', sec:'Empleo y abogado'},
+  {k:'statusTrabajo',     l:'Status trabajo',            t:'select', sec:'Empleo y abogado',
+     opts:['Activo','Inactivo','Desconocido','Jubilado','Fallecido','Sin empleo','LABORANDO-D','NO LABORA-D']},
+  {k:'abogado',           l:'Abogado',                   t:'text', sec:'Empleo y abogado'}
+];
+
+const COLS = [
+  {k:'noPrestamo',        l:'No. Préstamo'},
+  {k:'nombreDeudor',      l:'Deudor'},
+  {k:'cedulaDeudor',      l:'Cédula'},
+  {k:'sucursal',          l:'Sucursal'},
+  {k:'tipoJuicio',        l:'Tipo de juicio'},
+  {k:'noAsuntoJudicial',  l:'No. Asunto'},
+  {k:'juzgado',           l:'Juzgado'},
+  {k:'fechaUltimaGestion',l:'Últ. gestión', date:true},
+  {k:'estatus',           l:'Estatus', badge:true},
+  {k:'montoDemanda',      l:'Monto demanda', money:true},
+  {k:'montoRecuperado',   l:'Recuperado', money:true},
+  {k:'_pendiente',        l:'Pendiente', money:true},
+  {k:'abogado',           l:'Abogado'}
+];
+
+const FIELD_ALIASES = {
+  noPrestamo:['PRESTAMO','NO PRESTAMO','N PRESTAMO','NUMERO PRESTAMO','NO. PRESTAMO'],
+  estadoCartera:['ESTADO DE LA CARTERA','ESTADO CARTERA'],
+  sucursal:['SUCURSAL'],
+  nombreDeudor:['NOMBRE DEL DEUDOR','NOMBRE DEUDOR','DEUDOR'],
+  fUltimoPago:['F.ULTIMO PAGO','F ULTIMO PAGO','FECHA ULTIMO PAGO'],
+  fechaUltimoPago:['FECHA ULTIMO PAGO'],
+  cedulaDeudor:['CEDULA DEUDOR','CEDULA DEL DEUDOR'],
+  nombreFiadores:['NOMBRE DEL FIADOR (ES)','NOMBRE DEL FIADOR','NOMBRE FIADOR (ES)','NOMBRE FIADORES','FIADOR (ES)'],
+  cedulaFiador:['CEDULA FIADOR','CEDULA DEL FIADOR'],
+  tipoJuicio:['TIPO DE JUICIO','TIPO JUICIO'],
+  fechaPresentacionDemanda:['FECHA DE PRESENTACION DE DEMANDA','FECHA PRESENTACION DEMANDA'],
+  juzgado:['JUZGADO'],
+  noAsuntoJudicial:['NO. ASUNTO JUDICIAL','NO ASUNTO JUDICIAL','NUMERO ASUNTO JUDICIAL','ASUNTO JUDICIAL'],
+  fechaUltimaGestion:['FECHA ULTIMA GESTION','FECHA DE ULTIMA GESTION','ULTIMA GESTION'],
+  gestionProcesal:['GESTION PROCESAL REALIZADA','GESTION PROCESAL'],
+  accionEjecutar:['ACCION A EJECUTAR','ACCION EJECUTAR'],
+  estatus:['ESTATUS','ESTADO'],
+  montoDemanda:['MONTO DE LA DEMANDA','MONTO DEMANDA'],
+  costasTasadas:['COSTAS TASADAS'],
+  totalRecuperar:['TOTAL A RECUPERAR','TOTAL A RECUPERAR '],
+  montoRecuperado:['MONTO RECUPERADO A LA FECHA','MONTO RECUPERADO'],
+  montoPendiente:['MONTO PENDIENTE DE RECUPERAR','MONTO PENDIENTE'],
+  lugarEmbargo:['LUGAR DE EMBARGO'],
+  cedulaDeudor2:['CEDULA DEUDOR2','CEDULA DEUDOR 2'],
+  trabajoActual:['TRABAJO ACTUAL'],
+  abogado:['ABOGADO'],
+  salario:['SALARIO'],
+  statusTrabajo:['STATUS TRABAJO','ESTATUS TRABAJO']
+};
+
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+const $  = s => document.querySelector(s);
+const LS_KEY = 'gestor_casos_judiciales_v3';
+let casos = [], editId = null, sortKey = null, sortDir = 1, viewId = null;
+let sucursalSel = null;
+let selectedSheet = null, selectedRows = [];
+
+const num = v => { if(v===null||v===undefined||v==='') return 0; const n = parseFloat(String(v).replace(/[^\d.\-]/g,'')); return isNaN(n) ? 0 : n; };
+const fmtN = n => num(n).toLocaleString('es', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtNI = n => num(n).toLocaleString('es');
+const fmtDate = d => { if(!d) return '—'; const p = String(d).split('T')[0].split('-'); return p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : d; };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function toast(msg, ms=2400){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove('show'), ms);
+}
+function calc(c){
+  const md = num(c.montoDemanda), ct = num(c.costasTasadas), mr = num(c.montoRecuperado);
+  const total = md + ct;
+  return { total, pendiente: total - mr, md, ct, mr };
+}
+function badgeClass(e){
+  const s = (e||'').toLowerCase();
+  if(s.includes('cancel')||s.includes('cerr')||s.includes('archiv')) return 'b-cerr';
+  if(s.includes('suspend')||s.includes('apelac')) return 'b-susp';
+  if(s.includes('activo')||s.includes('trámite')||s.includes('tramite')) return 'b-tramite';
+  if(s.includes('embargo')||s.includes('ejecuc')||s.includes('recuper')) return 'b-activo';
+  if(s.includes('no labora')||s.includes('pendiente')) return 'b-peligro';
+  return 'b-cerr';
+}
+
+function guardar(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(casos)); }catch(e){ console.warn(e); } }
+function cargar(){ try{ casos = JSON.parse(localStorage.getItem(LS_KEY)) || []; }catch(e){ casos = []; } }
+
+/* ============================================================
+   PANEL DE SUCURSALES
+   ============================================================ */
+function agruparPorSucursal(){
+  const grupos = {};
+  casos.forEach(c => {
+    const suc = (c.sucursal || 'SIN SUCURSAL').trim().toUpperCase() || 'SIN SUCURSAL';
+    if(!grupos[suc]) grupos[suc] = {
+      nombre: suc, casos: [],
+      md:0, ct:0, total:0, rec:0, pend:0,
+      estatus:{}, abogados:{}, statusTrabajo:{}, tipoJuicio:{}, juzgados:{},
+      deudores:new Set(), recuperadosFull:0, activos:0, cancelados:0, embargos:0, noLabora:0
+    };
+    const g = grupos[suc];
+    const k = calc(c);
+    g.casos.push(c);
+    g.md += k.md; g.ct += k.ct; g.total += k.total; g.rec += k.mr; g.pend += k.pendiente;
+    g.deudores.add((c.nombreDeudor||'').trim().toUpperCase());
+    const est = (c.estatus||'SIN ESTATUS').trim();
+    g.estatus[est] = (g.estatus[est]||0) + 1;
+    const ab = (c.abogado||'SIN ASIGNAR').trim();
+    g.abogados[ab] = (g.abogados[ab]||0) + 1;
+    const st = (c.statusTrabajo||'DESCONOCIDO').trim();
+    g.statusTrabajo[st] = (g.statusTrabajo[st]||0) + 1;
+    const tj = (c.tipoJuicio||'SIN TIPO').trim();
+    g.tipoJuicio[tj] = (g.tipoJuicio[tj]||0) + 1;
+    const jz = (c.juzgado||'SIN JUZGADO').trim();
+    g.juzgados[jz] = (g.juzgados[jz]||0) + 1;
+    const e = est.toLowerCase();
+    if(e.includes('cancel')||e.includes('cerr')) g.cancelados++;
+    else if(e.includes('embargo')||e.includes('ejecuc')) g.embargos++;
+    if(e.includes('activo')||e.includes('trámite')||e.includes('tramite')||e.includes('recuper')) g.activos++;
+    if((st||'').toUpperCase().includes('NO LABORA')) g.noLabora++;
+  });
+  return grupos;
+}
+
+function renderSucursales(){
+  const grid = $('#sucGrid');
+  const grupos = agruparPorSucursal();
+  const nombres = Object.keys(grupos).sort((a,b)=>grupos[b].casos.length - grupos[a].casos.length);
+
+  if(!nombres.length){
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#6b7690;padding:20px">Aún no hay sucursales. Importa tu base de Excel para verlas aquí.</div>';
+    $('#sucDetail').style.display = 'none';
+    return;
+  }
+
+  grid.innerHTML = '';
+  nombres.forEach(nom => {
+    const g = grupos[nom];
+    const pct = g.total > 0 ? (g.rec / g.total) * 100 : 0;
+    const card = document.createElement('div');
+    card.className = 'suc-card' + (sucursalSel === nom ? ' sel' : '');
+    card.innerHTML = `
+      <div class="nom">🏢 ${esc(g.nombre)} <span class="num">${g.casos.length}</span></div>
+      <div class="monto">C$ ${fmtN(g.total)}</div>
+      <div class="monto-l">Total a recuperar</div>
+      <div class="row"><span>Recuperado</span><b>C$ ${fmtN(g.rec)}</b></div>
+      <div class="row"><span>Pendiente</span><span class="red">C$ ${fmtN(g.pend)}</span></div>
+      <div class="row"><span>Deudores únicos</span><span>${g.deudores.size}</span></div>
+      <div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>
+      <div class="pct">${pct.toFixed(1)}% recuperación</div>
+    `;
+    card.addEventListener('click', () => {
+      sucursalSel = (sucursalSel === nom) ? null : nom;
+      renderSucursales();
+      render();
+    });
+    grid.appendChild(card);
+  });
+
+  // Detalle de sucursal seleccionada
+  const det = $('#sucDetail');
+  if(sucursalSel && grupos[sucursalSel]){
+    const g = grupos[sucursalSel];
+    const top = (obj, n=6) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n);
+    const pct = g.total > 0 ? (g.rec / g.total) * 100 : 0;
+
+    const estatusHtml = Object.entries(g.estatus).sort((a,b)=>b[1]-a[1])
+      .map(([k,v])=>`<div class="item"><span>${esc(k)}</span><b>${v}</b></div>`).join('');
+    const abogadosHtml = top(g.abogados).map(([k,v])=>`<div class="item"><span>${esc(k)}</span><b>${v}</b></div>`).join('');
+    const trabajoHtml = Object.entries(g.statusTrabajo).sort((a,b)=>b[1]-a[1])
+      .map(([k,v])=>{
+        const cls = k.toUpperCase().includes('LABORANDO') ? 'g' : (k.toUpperCase().includes('NO LABORA') ? 'r' : '');
+        return `<div class="item"><span>${esc(k)}</span><span class="val ${cls}">${v}</span></div>`;
+      }).join('');
+    const juicioHtml = top(g.tipoJuicio,5).map(([k,v])=>`<div class="item"><span>${esc(k)}</span><b>${v}</b></div>`).join('');
+    const juzgadosHtml = top(g.juzgados,5).map(([k,v])=>`<div class="item"><span title="${esc(k)}">${esc(k.length>35?k.slice(0,35)+'…':k)}</span><b>${v}</b></div>`).join('');
+
+    det.innerHTML = `
+      <div class="box">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+          <div>
+            <h3 style="font-size:16px;color:var(--primary)">🏢 Sucursal ${esc(g.nombre)}</h3>
+            <div style="font-size:12.5px;color:var(--muted);margin-top:3px">
+              ${g.casos.length} caso(s) · ${g.deudores.size} deudor(es) único(s)
+            </div>
+          </div>
+          <div class="mini-actions">
+            <button class="btn ghost sm" id="sucVerLista">📋 Ver solo estos casos en la tabla</button>
+            <button class="btn ghost sm" id="sucExportar">⬇ Exportar esta sucursal</button>
+            <button class="btn ghost sm" id="sucCerrar">✕ Cerrar detalle</button>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-col">
+            <div class="h">💰 Económico</div>
+            <div class="item"><span>Monto demandado</span><span class="val">C$ ${fmtN(g.md)}</span></div>
+            <div class="item"><span>Costas tasadas</span><span class="val">C$ ${fmtN(g.ct)}</span></div>
+            <div class="item"><span>Total a recuperar</span><span class="val">C$ ${fmtN(g.total)}</span></div>
+            <div class="item"><span>Recuperado</span><span class="val g">C$ ${fmtN(g.rec)}</span></div>
+            <div class="item"><span>Pendiente</span><span class="val r">C$ ${fmtN(g.pend)}</span></div>
+            <div class="item"><span>% Recuperación</span><span class="val">${pct.toFixed(1)}%</span></div>
+          </div>
+
+          <div class="detail-col">
+            <div class="h">📊 Estado procesal</div>
+            ${estatusHtml || '<div class="item"><span>Sin datos</span><b>—</b></div>'}
+            <div class="item" style="margin-top:6px;padding-top:8px;border-top:2px solid #e8efff">
+              <span><b>Resumen:</b></span>
+              <span class="val">Activos: ${g.activos} · Embargos: ${g.embargos} · Cerrados: ${g.cancelados}</span>
+            </div>
+          </div>
+
+          <div class="detail-col">
+            <div class="h">👨‍⚖️ Abogados asignados</div>
+            ${abogadosHtml || '<div class="item"><span>Sin datos</span><b>—</b></div>'}
+          </div>
+
+          <div class="detail-col">
+            <div class="h">💼 Status trabajo deudores</div>
+            ${trabajoHtml || '<div class="item"><span>Sin datos</span><b>—</b></div>'}
+          </div>
+
+          <div class="detail-col">
+            <div class="h">⚖️ Tipos de juicio (top 5)</div>
+            ${juicioHtml || '<div class="item"><span>Sin datos</span><b>—</b></div>'}
+          </div>
+
+          <div class="detail-col">
+            <div class="h">🏛️ Juzgados (top 5)</div>
+            ${juzgadosHtml || '<div class="item"><span>Sin datos</span><b>—</b></div>'}
+          </div>
+        </div>
+
+        <div class="mini-actions" style="margin-top:14px">
+          <button class="btn primary sm" id="sucVerTodos">👁 Ver los ${g.casos.length} caso(s) de esta sucursal</button>
+        </div>
+      </div>
+    `;
+    det.style.display = 'block';
+
+    const aplicarFiltro = () => {
+      $('#filterSucursal').value = sucursalSel;
+      window.scrollTo({top: document.querySelector('.panel').offsetTop - 20, behavior:'smooth'});
+      render();
+    };
+    $('#sucVerLista').onclick = aplicarFiltro;
+    $('#sucVerTodos').onclick = aplicarFiltro;
+    $('#sucCerrar').onclick = () => { sucursalSel = null; renderSucursales(); render(); };
+    $('#sucExportar').onclick = () => exportCSVDe(g.casos, 'sucursal_' + g.nombre.replace(/\s+/g,'_'));
+  } else {
+    det.style.display = 'none';
+  }
+}
+
+/* ============================================================
+   FORMULARIO
+   ============================================================ */
+function buildForm(){
+  const form = $('#casoForm');
+  form.innerHTML = '';
+  let sec = null;
+  FIELDS.forEach(f => {
+    if(f.sec !== sec){
+      sec = f.sec;
+      const h = document.createElement('div');
+      h.className = 'form-section'; h.textContent = sec;
+      form.appendChild(h);
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'field' + (f.t === 'textarea' ? ' full' : '');
+    const lab = document.createElement('label');
+    lab.setAttribute('for','f_'+f.k);
+    lab.innerHTML = esc(f.l) + (f.req ? ' <span class="req">*</span>' : '');
+    wrap.appendChild(lab);
+
+    let inp;
+    if(f.t === 'textarea'){ inp = document.createElement('textarea'); inp.rows = 2; }
+    else if(f.t === 'select'){
+      inp = document.createElement('select');
+      const o0 = document.createElement('option'); o0.value=''; o0.textContent='— Seleccionar —';
+      inp.appendChild(o0);
+      f.opts.forEach(o => { const op = document.createElement('option'); op.value=o; op.textContent=o; inp.appendChild(op); });
+    } else {
+      inp = document.createElement('input'); inp.type = f.t;
+      if(f.t === 'number'){ inp.step = '0.01'; inp.min = '0'; }
+    }
+    inp.id = 'f_' + f.k;
+    if(f.readonly) inp.readOnly = true;
+    wrap.appendChild(inp);
+    form.appendChild(wrap);
+  });
+  ['f_montoDemanda','f_costasTasadas','f_montoRecuperado'].forEach(id => {
+    document.getElementById(id).addEventListener('input', recalc);
+  });
+}
+
+function recalc(){
+  const md = num($('#f_montoDemanda').value);
+  const ct = num($('#f_costasTasadas').value);
+  const mr = num($('#f_montoRecuperado').value);
+  $('#f_totalRecuperar').value = (md + ct).toFixed(2);
+  $('#f_montoPendiente').value = (md + ct - mr).toFixed(2);
+}
+
+function openForm(c){
+  FIELDS.forEach(f => {
+    const el = document.getElementById('f_' + f.k);
+    el.value = c ? (c[f.k] ?? '') : '';
+    if(f.t === 'select' && c && c[f.k]){
+      const v = c[f.k];
+      if(![...el.options].some(o=>o.value===v)){
+        const o = document.createElement('option'); o.value=v; o.textContent=v; el.appendChild(o);
+      }
+      el.value = v;
+    }
+  });
+  editId = c ? c.id : null;
+  $('#formTitle').textContent = c ? '✎ Editar caso — ' + (c.nombreDeudor || '') : '＋ Nuevo caso';
+  recalc();
+  $('#formModal').classList.add('show');
+}
+
+function saveCaso(){
+  const nombre = $('#f_nombreDeudor').value.trim();
+  if(!nombre){ toast('⚠ El nombre del deudor es obligatorio'); $('#f_nombreDeudor').focus(); return; }
+  const data = { id: editId || ('c' + Date.now() + Math.random().toString(36).slice(2,7)) };
+  FIELDS.forEach(f => { data[f.k] = document.getElementById('f_' + f.k).value; });
+  if(editId){
+    const i = casos.findIndex(c => c.id === editId);
+    if(i > -1) casos[i] = data;
+    toast('✔ Caso actualizado');
+  } else {
+    casos.unshift(data);
+    toast('✔ Caso registrado');
+  }
+  guardar(); render(); renderSucursales(); closeModals();
+}
+
+/* ============================================================
+   TABLA
+   ============================================================ */
+function buildHead(){
+  const tr = $('#theadRow');
+  tr.innerHTML = '';
+  COLS.forEach(c => {
+    const th = document.createElement('th');
+    th.dataset.key = c.k;
+    th.innerHTML = esc(c.l) + ' <span class="arw">⇅</span>';
+    th.addEventListener('click', () => {
+      if(sortKey === c.k) sortDir *= -1; else { sortKey = c.k; sortDir = 1; }
+      render();
+    });
+    tr.appendChild(th);
+  });
+  const thA = document.createElement('th');
+  thA.textContent = 'Acciones';
+  thA.style.cursor = 'default';
+  tr.appendChild(thA);
+}
+
+function getFiltered(){
+  const q  = $('#search').value.trim().toLowerCase();
+  const fe = $('#filterEstatus').value;
+  const fa = $('#filterAbogado').value;
+  const fs = $('#filterSucursal').value;
+  return casos.filter(c => {
+    if(fe && c.estatus !== fe) return false;
+    if(fa && c.abogado !== fa) return false;
+    if(fs && (c.sucursal||'').toUpperCase() !== fs.toUpperCase()) return false;
+    if(q){
+      const blob = FIELDS.map(f => c[f.k] || '').join(' ').toLowerCase();
+      if(!blob.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function fillFilter(sel, key, upper){
+  const el = $(sel);
+  const prev = el.value;
+  let vals = [...new Set(casos.map(c => c[key]).filter(v => v && String(v).trim()))];
+  if(upper) vals = vals.map(v=>v.toUpperCase());
+  vals = [...new Set(vals)].sort((a,b)=>String(a).localeCompare(String(b)));
+  const label = el.options[0].textContent.split(':')[0];
+  el.innerHTML = `<option value="">${label}: todos</option>`;
+  vals.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; el.appendChild(o); });
+  if(vals.includes(prev)) el.value = prev;
+}
+
+function render(){
+  fillFilter('#filterEstatus','estatus');
+  fillFilter('#filterAbogado','abogado');
+  fillFilter('#filterSucursal','sucursal', true);
+
+  let rows = getFiltered();
+  if(sortKey){
+    rows.sort((a,b) => {
+      let va, vb;
+      if(sortKey === '_pendiente'){ va = calc(a).pendiente; vb = calc(b).pendiente; }
+      else if(COLS.find(c => c.k===sortKey)?.money){ va = num(a[sortKey]); vb = num(b[sortKey]); }
+      else { va = String(a[sortKey]||'').toLowerCase(); vb = String(b[sortKey]||'').toLowerCase(); }
+      if(va < vb) return -1*sortDir;
+      if(va > vb) return 1*sortDir;
+      return 0;
+    });
+  }
+
+  const tb = $('#tbody');
+  tb.innerHTML = '';
+  const frag = document.createDocumentFragment();
+
+  rows.forEach(c => {
+    const k = calc(c);
+    const tr = document.createElement('tr');
+    COLS.forEach(col => {
+      const td = document.createElement('td');
+      if(col.k === '_pendiente'){ td.textContent = fmtN(k.pendiente); td.classList.add('num'); }
+      else if(col.money){ td.textContent = fmtN(c[col.k]); td.classList.add('num'); }
+      else if(col.date){ td.textContent = fmtDate(c[col.k]); }
+      else if(col.badge){
+        const e = c[col.k] || '—';
+        td.innerHTML = `<span class="badge ${badgeClass(e)}">${esc(e)}</span>`;
+      }
+      else td.textContent = c[col.k] || '—';
+      tr.appendChild(td);
+    });
+
+    const tdA = document.createElement('td');
+    tdA.innerHTML = `<div class="actions">
+        <button class="icon-btn" title="Ver detalle" data-act="ver">👁</button>
+        <button class="icon-btn" title="Editar" data-act="editar">✎</button>
+        <button class="icon-btn" title="Eliminar" data-act="eliminar">🗑</button>
+      </div>`;
+    tdA.querySelector('[data-act="ver"]').onclick      = () => verCaso(c.id);
+    tdA.querySelector('[data-act="editar"]').onclick   = () => openForm(c);
+    tdA.querySelector('[data-act="eliminar"]').onclick = () => eliminarCaso(c.id);
+    tr.appendChild(tdA);
+    frag.appendChild(tr);
+  });
+  tb.appendChild(frag);
+
+  $('#emptyMsg').style.display = rows.length ? 'none' : 'block';
+  $('#tabla').style.display   = rows.length ? 'table' : 'none';
+
+  renderStats();
+  $('#headerCount').textContent = casos.length + (casos.length === 1 ? ' caso' : ' casos');
+}
+
+function renderStats(){
+  let md = 0, tot = 0, rec = 0;
+  casos.forEach(c => { const k = calc(c); md += k.md; tot += k.total; rec += k.mr; });
+  $('#sCasos').textContent   = casos.length.toLocaleString('es');
+  $('#sDemanda').textContent = fmtN(md);
+  $('#sTotal').textContent   = fmtN(tot);
+  $('#sRecup').textContent   = fmtN(rec);
+  $('#sPend').textContent    = fmtN(tot - rec);
+  $('#sPct').textContent     = tot > 0 ? ((rec / tot) * 100).toFixed(1) + '%' : '0%';
+}
+
+/* ============================================================
+   VER / ELIMINAR
+   ============================================================ */
+function verCaso(id){
+  const c = casos.find(x => x.id === id);
+  if(!c) return;
+  viewId = id;
+  const body = $('#viewBody');
+  body.innerHTML = '';
+  let sec = null;
+  FIELDS.forEach(f => {
+    if(f.sec !== sec){
+      sec = f.sec;
+      const h = document.createElement('div');
+      h.className = 'detail-sec'; h.textContent = sec;
+      body.appendChild(h);
+    }
+    const d = document.createElement('div');
+    d.className = 'd-item';
+    let v = c[f.k];
+    if(f.t === 'date') v = fmtDate(v);
+    else if(f.t === 'number') v = (v !== '' && v != null) ? fmtN(v) : '—';
+    else v = (v && String(v).trim()) ? v : '—';
+    d.innerHTML = `<div class="k">${esc(f.l)}</div><div class="v">${esc(v)}</div>`;
+    body.appendChild(d);
+  });
+  $('#viewTitle').textContent = '📄 ' + (c.nombreDeudor || 'Caso') + (c.noAsuntoJudicial ? ' · ' + c.noAsuntoJudicial : '');
+  $('#viewModal').classList.add('show');
+}
+
+function eliminarCaso(id){
+  const c = casos.find(x => x.id === id);
+  if(!c) return;
+  if(!confirm(`¿Eliminar definitivamente el caso de "${c.nombreDeudor}"?`)) return;
+  casos = casos.filter(x => x.id !== id);
+  guardar(); render(); renderSucursales(); toast('🗑 Caso eliminado');
+}
+
+/* ============================================================
+   MODALES
+   ============================================================ */
+function closeModals(){ document.querySelectorAll('.overlay').forEach(o => o.classList.remove('show')); }
+document.addEventListener('click', e => { if(e.target.closest('[data-close]')) closeModals(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModals(); });
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('mousedown', e => { if(e.target === o) closeModals(); });
+});
+
+/* ============================================================
+   EXPORTAR
+   ============================================================ */
+function exportCSVDe(lista, nombre){
+  if(!lista.length) return toast('⚠ No hay casos');
+  const heads = FIELDS.map(f => f.l).concat(['TOTAL A RECUPERAR (calc.)','PENDIENTE (calc.)']);
+  const rows = lista.map(c => {
+    const k = calc(c);
+    return FIELDS.map(f => `"${String(c[f.k] ?? '').replace(/"/g,'""').replace(/\r?\n/g,' ')}"`)
+      .concat([k.total.toFixed(2), k.pendiente.toFixed(2)]);
+  });
+  const csv = '\uFEFF' + [heads.map(h=>`"${h}"`).join(';')].concat(rows.map(r => r.join(';'))).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (nombre||'casos') + '_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('⬇ CSV exportado');
+}
+function exportCSV(){ exportCSVDe(getFiltered(), 'casos_judiciales'); }
+
+function exportJSON(){
+  if(!casos.length) return toast('⚠ No hay casos');
+  const blob = new Blob([JSON.stringify(casos, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'respaldo_casos_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('⬇ Respaldo generado');
+}
+
+function importJSON(file){
+  const r = new FileReader();
+  r.onload = ev => {
+    try{
+      const data = JSON.parse(ev.target.result);
+      if(!Array.isArray(data)) throw new Error('Formato inválido');
+      const ids = new Set(casos.map(c => c.id));
+      let n = 0;
+      data.forEach(d => {
+        if(!d.id || ids.has(d.id)) d.id = 'c' + Date.now() + Math.random().toString(36).slice(2,7);
+        casos.push(d); n++;
+      });
+      guardar(); render(); renderSucursales(); toast(`⬆ ${n} casos importados`);
+    }catch(err){ alert('No se pudo importar: ' + err.message); }
+  };
+  r.readAsText(file);
+}
+
+/* ============================================================
+   IMPORTAR EXCEL
+   ============================================================ */
+function normHeader(s){
+  return String(s == null ? '' : s)
+    .toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[°º]/g,'').replace(/\s+/g,' ').trim();
+}
+const HEADER_LOOKUP = (() => {
+  const map = {};
+  Object.keys(FIELD_ALIASES).forEach(field => {
+    FIELD_ALIASES[field].forEach(alias => { map[normHeader(alias)] = field; });
+  });
+  return map;
+})();
+
+function excelDateToISO(val){
+  if(val == null || val === '') return '';
+  if(val instanceof Date){
+    if(isNaN(val)) return '';
+    const pad = n => String(n).padStart(2,'0');
+    return `${val.getFullYear()}-${pad(val.getMonth()+1)}-${pad(val.getDate())}`;
+  }
+  if(typeof val === 'number'){
+    const days = Math.round(val);
+    if(days < 1) return '';
+    const d = new Date(Date.UTC(1899,11,30) + days*86400000);
+    if(isNaN(d)) return '';
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`;
+  }
+  const s = String(val).trim();
+  if(!s || s === '#N/A' || s === 'N/A') return '';
+  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if(m){
+    let [_,a,b,c] = m;
+    if(c.length===2) c = '20'+c;
+    return `${c}-${b.padStart(2,'0')}-${a.padStart(2,'0')}`;
+  }
+  m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if(m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  return s;
+}
+function cleanString(v){
+  if(v == null) return '';
+  const s = String(v).trim();
+  if(s === '#N/A' || s === 'N/A' || s === '-' || s === '#¡VALOR!' || s === '#DIV/0!' || s === '#REF!') return '';
+  return s;
+}
+function findHeaderRow(aoa){
+  let bestRow = -1, bestCount = 0;
+  const limit = Math.min(aoa.length, 20);
+  for(let i = 0; i < limit; i++){
+    const row = aoa[i] || [];
+    let count = 0;
+    for(const cell of row){
+      const h = normHeader(cell);
+      if(HEADER_LOOKUP[h]) count++;
+    }
+    if(count > bestCount){ bestCount = count; bestRow = i; }
+  }
+  return { rowIdx: bestRow, count: bestCount };
+}
+
+function sheetToCasos(sheet){
+  const aoa = XLSX.utils.sheet_to_json(sheet, { header:1, raw:true, defval:'', blankrows:false });
+  if(!aoa.length) return { rows: [], headerIdx: -1, cols: 0 };
+  const { rowIdx, count } = findHeaderRow(aoa);
+  if(rowIdx < 0 || count < 3) return { rows: [], headerIdx: -1, cols: 0 };
+  const headers = (aoa[rowIdx] || []).map(h => normHeader(h));
+  const colMap = {};
+  headers.forEach((h, idx) => {
+    if(!h) return;
+    const field = HEADER_LOOKUP[h];
+    if(field && colMap[idx] === undefined) colMap[idx] = field;
+  });
+
+  const rows = [];
+  for(let r = rowIdx+1; r < aoa.length; r++){
+    const row = aoa[r] || [];
+    const obj = { id: 'x' + Date.now() + '_' + r + '_' + Math.random().toString(36).slice(2,6) };
+    let hasData = false;
+    Object.keys(colMap).forEach(idx => {
+      const field = colMap[idx];
+      let val = row[idx];
+      const fdef = FIELDS.find(f => f.k === field);
+      if(fdef && fdef.t === 'date') val = excelDateToISO(val);
+      else if(fdef && fdef.t === 'number'){
+        val = (val===''||val==null||isNaN(parseFloat(val)))?'':String(num(val));
+      }
+      else val = cleanString(val);
+      obj[field] = val;
+      if(val !== '' && val != null) hasData = true;
+    });
+    if(!hasData) continue;
+    const deudor = cleanString(obj.nombreDeudor);
+    const prestamo = cleanString(obj.noPrestamo);
+    const asunto = cleanString(obj.noAsuntoJudicial);
+    if(!deudor && !prestamo && !asunto) continue;
+    const total = num(obj.montoDemanda) + num(obj.costasTasadas);
+    obj.totalRecuperar = total ? total.toFixed(2) : '';
+    obj.montoPendiente = total ? (total - num(obj.montoRecuperado)).toFixed(2) : '';
+    rows.push(obj);
+  }
+  return { rows, headerIdx: rowIdx, cols: Object.keys(colMap).length };
+}
+
+function openExcelModal(){
+  selectedSheet = null; selectedRows = [];
+  $('#sheetPick').style.display = 'none';
+  $('#previewSummary').style.display = 'none';
+  $('#btnConfirmImport').disabled = true;
+  $('#dropzone').style.display = 'block';
+  $('#excelModal').classList.add('show');
+}
+
+function handleExcelFile(file){
+  if(!file) return;
+  if(file.size > 15 * 1024 * 1024){ toast('⚠ Archivo muy grande (máx 15 MB)'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type:'array', cellDates:true });
+      const sheets = wb.SheetNames.map(name => {
+        const { rows, headerIdx, cols } = sheetToCasos(wb.Sheets[name]);
+        return { name, rows, headerIdx, cols };
+      });
+      sheets.sort((a,b) => (b.rows.length * (b.cols+1)) - (a.rows.length * (a.cols+1)));
+
+      const list = $('#sheetList');
+      list.innerHTML = '';
+      sheets.forEach(s => {
+        const card = document.createElement('div');
+        card.className = 'sheet-card';
+        const isBest = s.cols >= 5 && s.rows.length > 0;
+        card.innerHTML = `
+          <div class="n">📄 ${esc(s.name)}</div>
+          <div class="m">${s.rows.length} fila(s) · ${s.cols} columna(s) reconocida(s)</div>
+          ${isBest ? '<div class="ok">✔ Compatible</div>' : '<div class="m">Datos insuficientes</div>'}
+        `;
+        if(isBest){ card.addEventListener('click', () => selectSheet(s, card)); card.style.cursor = 'pointer'; }
+        else card.style.opacity = '.5';
+        list.appendChild(card);
+      });
+
+      const best = sheets.find(s => s.cols >= 5 && s.rows.length > 0);
+      if(best){
+        const card = [...list.children][sheets.indexOf(best)];
+        selectSheet(best, card);
+      }
+      $('#dropzone').style.display = 'none';
+      $('#sheetPick').style.display = 'block';
+    }catch(err){
+      console.error(err);
+      alert('No se pudo leer el archivo: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function selectSheet(sheetObj, cardEl){
+  [...$('#sheetList').children].forEach(c => c.classList.remove('sel'));
+  if(cardEl) cardEl.classList.add('sel');
+  selectedSheet = sheetObj.name;
+  selectedRows = sheetObj.rows;
+
+  const total = selectedRows.reduce((s,r)=>s+num(r.montoDemanda)+num(r.costasTasadas),0);
+  const rec   = selectedRows.reduce((s,r)=>s+num(r.montoRecuperado),0);
+  const sucursales = new Set(selectedRows.map(r=>(r.sucursal||'').toUpperCase()).filter(Boolean)).size;
+  const abogados = new Set(selectedRows.map(r=>r.abogado).filter(Boolean)).size;
+
+  $('#previewSummary').innerHTML = `
+    <div style="font-weight:700;margin-bottom:6px">📊 Vista previa — hoja “${esc(sheetObj.name)}”</div>
+    <div class="r"><span>Casos detectados</span><b>${selectedRows.length.toLocaleString('es')}</b></div>
+    <div class="r"><span>Columnas reconocidas</span><b>${sheetObj.cols}</b></div>
+    <div class="r"><span>Sucursales</span><b>${sucursales}</b></div>
+    <div class="r"><span>Abogados</span><b>${abogados}</b></div>
+    <div class="r"><span>Total a recuperar</span><b>C$ ${fmtN(total)}</b></div>
+    <div class="r"><span>Recuperado</span><b>C$ ${fmtN(rec)}</b></div>
+  `;
+  $('#previewSummary').style.display = 'block';
+  $('#btnConfirmImport').disabled = selectedRows.length === 0;
+}
+
+function confirmImport(){
+  if(!selectedRows.length) return;
+  const reemplazar = casos.length > 0
+    ? confirm(`Ya tienes ${casos.length} caso(s).\n\nAceptar = REEMPLAZAR toda la base\nCancelar = AGREGAR los ${selectedRows.length} nuevos`)
+    : true;
+  if(reemplazar){ casos = selectedRows.slice(); }
+  else {
+    const ids = new Set(casos.map(c=>c.id));
+    selectedRows.forEach(r => {
+      if(ids.has(r.id)) r.id = 'x' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+      casos.push(r);
+    });
+  }
+  sucursalSel = null;
+  guardar(); render(); renderSucursales(); closeModals();
+  toast(`✔ ${selectedRows.length} casos importados desde Excel`);
+}
+
+/* ============================================================
+   EVENTOS
+   ============================================================ */
+$('#btnExcel').onclick          = openExcelModal;
+$('#btnNuevo').onclick          = () => openForm(null);
+$('#saveBtn').onclick           = saveCaso;
+$('#btnCSV').onclick            = exportCSV;
+$('#btnJSON').onclick           = exportJSON;
+$('#btnImportJSON').onclick     = () => $('#fileImportJSON').click();
+$('#fileImportJSON').onchange   = e => { if(e.target.files[0]){ importJSON(e.target.files[0]); e.target.value=''; } };
+$('#fileExcel').onchange        = e => { if(e.target.files[0]){ handleExcelFile(e.target.files[0]); e.target.value=''; } };
+$('#btnConfirmImport').onclick  = confirmImport;
+
+$('#dropzone').onclick = () => $('#fileExcel').click();
+const dz = $('#dropzone');
+['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over'); }));
+dz.addEventListener('drop', e => {
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if(f) handleExcelFile(f);
+});
+
+$('#btnBorrarTodo').onclick = () => {
+  if(!casos.length) return toast('⚠ No hay casos');
+  if(!confirm('¿Eliminar TODOS los casos? Esta acción es irreversible.')) return;
+  casos = []; sucursalSel = null; guardar(); render(); renderSucursales(); toast('🗑 Base vaciada');
+};
+
+$('#viewEdit').onclick = () => {
+  const c = casos.find(x => x.id === viewId);
+  closeModals();
+  if(c) setTimeout(() => openForm(c), 120);
+};
+
+['#search','#filterEstatus','#filterAbogado','#filterSucursal'].forEach(s => {
+  $(s).addEventListener('input', () => {
+    // Si el usuario cambia manualmente el filtro de sucursal, sincronizamos el panel
+    if(s === '#filterSucursal'){
+      const v = $('#filterSucursal').value;
+      sucursalSel = v ? v.toUpperCase() : null;
+      renderSucursales();
+    }
+    render();
+  });
+  $(s).addEventListener('change', () => {
+    if(s === '#filterSucursal'){
+      const v = $('#filterSucursal').value;
+      sucursalSel = v ? v.toUpperCase() : null;
+      renderSucursales();
+    }
+    render();
+  });
+});
+
+/* ============================================================
+   INIT
+   ============================================================ */
+buildForm();
+buildHead();
+cargar();
+render();
+renderSucursales();
+</script>
+</body>
+</html>
